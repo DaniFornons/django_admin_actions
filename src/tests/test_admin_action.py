@@ -82,8 +82,8 @@ def test_condition_result_determines_record_inclusion(
 ):
     """The condition should include and exclude appropriately."""
     instance = model_instance()
-    r = _request("post", data={ACTION_CHECKBOX_NAME: [instance.pk]})
     model_instance()  # A second instance that should be excluded
+    r = _request("post", data={ACTION_CHECKBOX_NAME: [instance.pk]})
 
     def condition(record):
         return record.pk == instance.pk

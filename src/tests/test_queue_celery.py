@@ -24,8 +24,8 @@ def celery_config():
 @pytest.fixture
 def celery_task(celery_session_app):
     @celery_session_app.task
-    def sample_task(foo):  # Must take a single argument
-        pass
+    def sample_task(sample_pk: int):  # Must take a single argument
+        print(f"Processing record {sample_pk}")
 
     return sample_task
 
@@ -48,7 +48,7 @@ def test_task_is_delayed_appropriately(
     """Using the action in the Admin should delay the provided task."""
     instance = model_instance()
     model_instance()
-    r = _request("post", data={ACTION_CHECKBOX_NAME: [instance.pk]})
+    r = _request(method="post", data={ACTION_CHECKBOX_NAME: [instance.pk]})  # type: ignore # kwargs are unexpected?
 
     def _filter(obj: AdminActionsTestModel) -> bool:
         return obj.pk == instance.pk
@@ -68,3 +68,39 @@ def test_non_celery_task_raises():
     with pytest.raises(TypeError):
         # noinspection PyTypeChecker
         QueueCeleryAction(task=not_a_celery_task)  # pyright: ignore[reportArgumentType]
+
+
+def test_celery_not_available(monkeypatch):
+    """Without Celery installed, `from admin_actions.actions import *` should not include `QueueCeleryAction`."""
+    import sys
+    from importlib import reload
+
+    if "admin_actions.actions" in sys.modules:
+        del sys.modules["admin_actions.actions"]
+    if "admin_actions.actions.queue_celery" in sys.modules:
+        del sys.modules["admin_actions.actions.queue_celery"]
+
+    monkeypatch.setitem(sys.modules, "celery", None)
+
+    import admin_actions.actions
+
+    reload(admin_actions.actions)
+    assert "QueueCeleryAction" not in admin_actions.actions.__all__
+
+
+def test_celery_not_available_raises(monkeypatch):
+    """Celery not being installed should raise an ImportError."""
+    import sys
+    from importlib import reload
+
+    if "admin_actions.actions.queue_celery" in sys.modules:
+        del sys.modules["admin_actions.actions.queue_celery"]
+
+    monkeypatch.setitem(sys.modules, "celery", None)
+
+    with pytest.raises(
+        ImportError, match="Celery integration requires celery to be installed"
+    ):
+        import admin_actions.actions.queue_celery
+
+        reload(admin_actions.actions.queue_celery)

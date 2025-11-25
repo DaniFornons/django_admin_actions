@@ -1,7 +1,13 @@
 from .broadcast_pubsub import BroadcastPubSubAction
-from .queue_celery import QueueCeleryAction
 
 __all__ = [
     "BroadcastPubSubAction",
-    "QueueCeleryAction",
 ]
+
+# Guard import for Celery integration
+try:
+    from .queue_celery import QueueCeleryAction  # noqa: F401
+except ImportError:
+    pass
+else:
+    __all__.append("QueueCeleryAction")
